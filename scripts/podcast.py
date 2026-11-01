@@ -228,12 +228,12 @@ def escape(text):
     return text.replace('\\', '＼').replace('{', '｛').replace('}', '｝')
 
 
-def render(episode, clips, image, gap):
+def render(episode, clips, image, gap, playback_speed=0.9):
     OUT.mkdir(exist_ok=True)
     timeline, cursor = [], 0.0
     for i, (line, audio) in enumerate(zip(episode['lines'],clips)):
         clip = OUT / f'turn-{i:04}.wav'
-        run('ffmpeg','-v','error','-y','-i',audio,'-af',f'apad=pad_dur={gap}','-ar','44100','-ac','1',clip)
+        run('ffmpeg','-v','error','-y','-i',audio,'-af',f'atempo={playback_speed},apad=pad_dur={gap}','-ar','44100','-ac','1',clip)
         length = duration(clip)
         timeline.append((cursor, cursor+length-gap, line))
         cursor += length
@@ -248,7 +248,7 @@ WrapStyle: 0
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: German,DejaVu Sans,52,&H00FFFFFF,&H00FFFFFF,&H00181B25,&H90000000,-1,0,0,0,100,100,0,0,1,3,1,8,180,180,55,1
-Style: English,DejaVu Sans,36,&H008DE7FF,&H008DE7FF,&H00181B25,&H90000000,0,0,0,0,100,100,0,0,1,2,1,8,180,180,190,1
+Style: English,DejaVu Sans,36,&H008DE7FF,&H008DE7FF,&H00181B25,&H90000000,0,0,0,0,100,100,0,0,1,2,1,8,180,180,165,1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
@@ -267,9 +267,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     (OUT/'english.srt').write_text('\n'.join(en_srt))
     atomic(OUT/'timeline.json',dict(duration_seconds=cursor, turns=[dict(start=s,end=e,**l) for s,e,l in timeline]))
     graph = ('[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,'
-             'setsar=1,drawbox=x=100:y=25:w=1720:h=300:color=black@0.40:t=fill,'
-             'drawbox=x=570:y=895:w=780:h=150:color=black@0.55:t=fill[bg];'
-             '[1:a]asplit=2[a][wave];[wave]showwaves=s=700x100:mode=cline:rate=25:colors=0xFFE78D:scale=sqrt[w];'
+             'setsar=1,drawbox=x=100:y=25:w=1720:h=245:color=black@0.20:t=fill,'
+             'drawbox=x=570:y=895:w=780:h=150:color=black@0.35:t=fill[bg];'
+             '[1:a]asplit=2[a][wave];[wave]volume=3,showwaves=s=700x100:mode=cline:rate=25:colors=0xFFE78D:scale=sqrt[w];'
              '[bg][w]overlay=610:920:shortest=1,ass=output/subtitles.ass[v]')
     run('ffmpeg','-v','error','-y','-loop','1','-framerate','25','-i',image,'-i',OUT/'podcast.wav',
         '-filter_complex',graph,'-map','[v]','-map','[a]','-c:v','libx264','-preset','fast','-crf','21',
@@ -311,7 +311,7 @@ def main():
             seconds=len(line['de'].split())/1.7
             run('ffmpeg','-v','error','-y','-f','lavfi','-i',f'sine=frequency={180 if line["speaker"]=="male" else 260}:duration={seconds}',audio)
         clips.append(audio)
-    render(episode,clips,config['image'],config['pause_seconds'])
+    render(episode,clips,config['image'],config['pause_seconds'],config.get('playback_speed',0.9))
     if accounts:
         usage=[]
         for a in accounts:

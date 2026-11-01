@@ -2,11 +2,45 @@
   "title": "Ein kleiner Spaziergang",
   "level": "A1",
   "lines": [
-    {"speaker":"male","de":"Hallo Anna! Wie geht es dir heute?","en":"Hello Anna! How are you today?"},
-    {"speaker":"female","de":"Hallo Ben! Mir geht es gut. Die Sonne scheint. Gehen wir in den Park?","en":"Hello Ben! I am well. The sun is shining. Shall we go to the park?"},
-    {"speaker":"male","de":"Ja, gern! Ich habe heute Zeit. Was nehmen wir mit?","en":"Yes, gladly! I have time today. What shall we take with us?"},
-    {"speaker":"female","de":"Ich nehme Wasser und zwei Äpfel mit. Hast du eine Tasche?","en":"I am taking water and two apples. Do you have a bag?"},
-    {"speaker":"male","de":"Ja, hier ist meine Tasche. Der Park ist nicht weit. Wir gehen zu Fuß.","en":"Yes, here is my bag. The park is not far. We are walking."},
-    {"speaker":"female","de":"Sehr gut! Im Park können wir sitzen, essen und ein bisschen Deutsch sprechen.","en":"Very good! In the park we can sit, eat and speak a little German."}
+    {
+      "speaker": "male",
+      "de": "Hallo Anna! Wie geht es dir heute?",
+      "en": "Hello Anna! How are you today?"
+    },
+    {
+      "speaker": "female",
+      "de": "Hallo Ben! Mir geht es gut. Die Sonne scheint. Gehen wir in den Park?",
+      "en": "Hello Ben! I am well. The sun is shining. Shall we go to the park?"
+    },
+    {
+      "speaker": "male",
+      "de": "Ja, gern! Ich habe heute Zeit. Was nehmen wir mit?",
+      "en": "Yes, gladly! I have time today. What shall we take with us?"
+    },
+    {
+      "speaker": "female",
+      "de": "Ich nehme Wasser und zwei Äpfel mit. Hast du eine Tasche?",
+      "en": "I am taking water and two apples. Do you have a bag?"
+    },
+    {
+      "speaker": "male",
+      "de": "Ja, hier ist meine Tasche. Der Park ist nicht weit. Wir gehen zu Fuß.",
+      "en": "Yes, here is my bag. The park is not far. We are walking."
+    },
+    {
+      "speaker": "female",
+      "de": "Sehr gut! Im Park können wir sitzen, essen und ein bisschen Deutsch sprechen.",
+      "en": "Very good! In the park we can sit, eat and speak a little German."
+    },
+    {
+      "speaker": "male",
+      "de": "Ja, das macht Spaß! Ich lerne jeden Tag Deutsch. Manchmal lese ich ein Buch. Was machst du gern?",
+      "en": "Yes, that is fun! I learn German every day. Sometimes I read a book. What do you like doing?"
+    },
+    {
+      "speaker": "female",
+      "de": "Ich höre gern Musik und koche gern. Heute essen wir im Park. Dann gehen wir nach Hause.",
+      "en": "I like listening to music and cooking. Today we are eating in the park. Then we are going home."
+    }
   ]
 }

@@ -1,6 +1,6 @@
 # German learning podcast
 
-Two alternating ElevenLabs voices, slow German (0.90 speed), natural 0.85-second pauses, your `podcast.png`, German subtitles at the upper centre, English underneath, and an audio-driven waveform near the bottom. 1920×1080 MP4, MP3, SRTs, preview and credit reports are downloadable as Actions artifacts.
+Two alternating ElevenLabs voices, slow German (0.90 synthesis speed plus 0.90 local playback speed), natural 0.85-second pauses, your `podcast.png`, German subtitles at the upper centre, English underneath, and an audio-driven waveform near the bottom. 1920×1080 MP4, MP3, SRTs, preview and credit reports are downloadable as Actions artifacts.
 
 ## Run
 
@@ -10,7 +10,7 @@ The initial addition/change of `input/sample.json` on `main` generates the short
 2. Set `script` to your input JSON path.
 3. Choose `generate` when ready. Set `max_credits` to a sufficient budget for a full episode.
 
-Full episodes should contain roughly 750–950 German words for 8–10 minutes at this pace, depending on pauses and delivery. The script is spoken exactly as supplied; there is no paid script-writing or translation service. Supply A1/A2 German and its English translation. `level` is a metadata check, not an automatic CEFR guarantee. The included sample uses simple A1 language. Actual audio duration is measured and recorded; no looping or padding to claim a target duration.
+Full episodes should contain roughly 800–1,100 German words for 8–10 minutes at this pace, depending on pauses and delivery. The script is spoken exactly as supplied; there is no paid script-writing or translation service. Supply A1/A2 German and its English translation. `level` is a metadata check, not an automatic CEFR guarantee. The included sample uses simple A1 language. Actual audio duration is measured and recorded; no looping or padding to claim a target duration.
 
 ## Input
 
