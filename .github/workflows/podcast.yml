@@ -1,0 +1,96 @@
+name: German Podcast
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: JSON script path
+        default: input/sample.json
+        required: true
+        type: string
+      mode:
+        description: plan uses no credits; generate creates audio and video
+        default: plan
+        type: choice
+        options: [plan, generate]
+      max_credits:
+        description: Conservative maximum credits for uncached German text
+        default: '700'
+        type: string
+  push:
+    branches: [main]
+    paths: ['input/sample.json']
+permissions:
+  contents: read
+concurrency:
+  group: elevenlabs-podcast
+  cancel-in-progress: false
+jobs:
+  podcast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install renderer
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - name: Restore paid audio and pending request journal
+        uses: actions/cache/restore@v4
+        with:
+          path: .audio-cache
+          key: eleven-audio-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: eleven-audio-v1-
+      - name: Offline tests
+        run: python -m unittest discover -s tests -v
+      - name: Plan or generate podcast
+        env:
+          ALVIN: ${{ secrets.ALVIN }}
+          AMY_OLIVER: ${{ secrets.AMY_OLIVER }}
+          FLORINA: ${{ secrets.FLORINA }}
+          JOHN_SNOW: ${{ secrets.JOHN_SNOW }}
+          ELEVENLABS_KEYS_JSON: ${{ secrets.ELEVENLABS_KEYS_JSON }}
+          SCRIPT_PATH: ${{ inputs.script || 'input/sample.json' }}
+          RUN_MODE: ${{ inputs.mode || 'generate' }}
+          MAX_CREDITS: ${{ inputs.max_credits || '700' }}
+        run: python scripts/podcast.py --script "$SCRIPT_PATH" --mode "$RUN_MODE" --max-credits "$MAX_CREDITS"
+      - name: Save paid responses even after failure
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .audio-cache
+          key: eleven-audio-v1-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload video, MP3, subtitles and credit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: podcast-${{ github.run_id }}
+          path: |
+            output/podcast.mp4
+            output/podcast.mp3
+            output/preview.png
+            output/*.srt
+            output/*.ass
+            output/*.json
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Preserve generation cache for manual recovery
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audio-recovery-${{ github.run_id }}
+          path: .audio-cache
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Credit summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path('output/credit-plan.json')
+          if p.exists():
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                  f.write('## Podcast credit plan\n\n```json\n' + p.read_text() + '\n```\n')
+          PY
