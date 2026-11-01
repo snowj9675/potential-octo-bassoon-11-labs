@@ -1,67 +1,62 @@
-# German learning podcast
+# German podcast — Eleven v3 dialogue
 
-Two alternating ElevenLabs voices, slow German (0.90 synthesis speed plus 0.90 local playback speed), variable pauses chosen per sentence, your `podcast.png`, German subtitles at the upper centre, English underneath, and an audio-driven waveform near the bottom. 1920×1080 MP4, MP3, SRTs, preview and credit reports are downloadable as Actions artifacts.
+The active workflow uses `scripts/dialogue_v3.py` and `input/v3-learning-german.json`. The complete short male/female conversation is sent as **one** Text to Dialogue request with `model_id: eleven_v3`. Turns may contain multiple sentences. Delivery, emotion and pauses are guided by tags such as `[curious]`, `[thoughtful]`, `[short pause]` and `[chuckles]` inside the script.
+
+**No inserted silence, no playback stretching, no sentence-by-sentence synthesis, no waveform, and no background panels.** Your existing `podcast.png` is used. Each caption is one authored German phrase (up to 5 words) with its matching English translation (up to 6 words), timed from the returned character alignment. The sample translations all fit within 5 words. Tags never appear in captions.
 
 ## Run
 
-Changes to rendering code, config, or the workflow on `main` rerender `input/learning-german.json` from cached audio only. Changing `input/learning-german.json` explicitly triggers generation of its new sentences, capped at the workflow budget of 700 estimated credits. Other script files run manually through workflow dispatch. For later runs open **Actions → German Podcast → Run workflow**:
+Open **Actions → German Podcast → Run workflow**. The default script is `input/v3-learning-german.json`.
 
-1. Choose `plan` first (offline, **zero API calls**).
-2. Set `script` to your input JSON path. Use `render` to change visuals and pacing with existing audio (zero API calls; fails if audio is missing).
-3. Choose `generate` explicitly when new speech is needed. Set `max_credits` to a sufficient budget for a full episode.
+- `plan`: offline credit estimate, no API calls.
+- `generate`: create missing v3 dialogue audio and render the video.
+- `render`: reuse the cached complete dialogue only; cannot call ElevenLabs.
 
-Full episodes should contain roughly 800–1,100 German words for 8–10 minutes at this pace, depending on pauses and delivery. The script is spoken exactly as supplied; there is no paid script-writing or translation service. Supply A1/A2 German and its English translation. `level` is a metadata check, not an automatic CEFR guarantee. The included sample uses simple A1 language. Actual audio duration is measured and recorded; no looping or padding to claim a target duration.
+Changing the default v3 input on `main` triggers generation with a 700-credit estimate budget. Code/config changes rerender the cached dialogue. The test contains 503 characters including audio tags, with a conservative estimate of 503 credits at the configured 1-credit ceiling. No Flash discount is assumed. Actual rates may vary by voice/plan. English is never synthesized.
 
-## Input
+Download the MP4, original provider MP3, SRTs, caption preview, timeline and credit report from Actions artifacts. Paid audio and alignment are also uploaded as an audio-recovery artifact and cached for retries. Cache retention is not permanent; retain recovery artifacts for important episodes.
+
+## Script
 
 ```json
-{"title":"Im Café","level":"A1","lines":[
-  {"speaker":"male","de":"Hallo! Was möchtest du trinken?","en":"Hello! What would you like to drink?"},
-  {"speaker":"female","de":"Ich möchte einen Tee, bitte.","en":"I would like a tea, please."}
-]}
+{
+  "title":"Deutsch lernen",
+  "level":"A1",
+  "turns":[
+    {"speaker":"male","text":"[curious] Wie lernst du Deutsch? Was hilft dir jeden Tag?","chunks":[
+      {"de":"Wie lernst du Deutsch?","en":"How do you learn German?"},
+      {"de":"Was hilft dir","en":"What helps you"},
+      {"de":"jeden Tag?","en":"every day?"}
+    ]},
+    {"speaker":"female","text":"[thoughtful] Ich höre kurze Dialoge.","chunks":[
+      {"de":"Ich höre kurze Dialoge.","en":"I listen to short dialogues."}
+    ]}
+  ]
+}
 ```
 
-Use `male` and `female` for the two hosts; consecutive sentences by one host are supported. Keep each turn short (German max 180 characters; English max 220) so subtitles stay readable. Prefer one German sentence and its one-sentence English translation per line. Existing multi-sentence turns are split into separate subtitle cues using saved timestamps; German and English sentence counts must match. English is displayed only and uses no TTS credits.
+The `text` is the tagged German actually sent to ElevenLabs. `chunks` are short human-translated phrase pairs. German chunks must reproduce every spoken word in order, with tags omitted. They do not affect the generated delivery or cache identity. Keep phrases meaningful rather than splitting German and English mechanically by word position. Changing captions or translations reuses the exact same audio.
 
-## Accounts and voices
+Tag delivery is model-directed, not an exact pause-duration guarantee. Do not use the old `pause_after`, `pace` or `sentence_pauses` fields in v3 scripts. The active v3 renderer never uses them. For reliable generation, the current test runner enforces the documented 2,000-character limit per dialogue request. Longer future episodes need conversation blocks, not individual sentence requests.
 
-Existing Actions secrets: `ALVIN`, `AMY_OLIVER`, `FLORINA`, `JOHN_SNOW`. Empty keys are skipped. To add any number of keys later, add an **Actions secret** named `ELEVENLABS_KEYS_JSON`, containing a JSON object mapping account labels to keys. Never commit keys. Keys require subscription/user/voices read permission and Text to Speech write permission.
+## Keys, budget and safe retries
 
-The live preflight fetches real balances, deduplicates keys for the same user, discovers male/female voices (preferring German labels), and prints selected voice IDs. It requires the same two voices on every eligible failover account. Pin IDs in `config.json` after listening to the sample for a consistent series. If auto-selection cannot find suitable shared voices, set the IDs explicitly. Voice accent and clarity must be judged from the sample; language support does not guarantee a native accent.
+Existing Actions secrets `ALVIN`, `AMY_OLIVER`, `FLORINA`, `JOHN_SNOW` are supported. Add more via `ELEVENLABS_KEYS_JSON`, a secret JSON object mapping labels to API keys. Empty keys are skipped and duplicate accounts are deduplicated. Keys need user/subscription and voice read access, plus permission to generate dialogue/TTS. The same male/female voice IDs must be available on the eligible account.
 
-Uses `eleven_flash_v2_5`, whose published API discount is 50%. The report includes that indicative estimate and uses **1 credit per input character** as a conservative ceiling for budget and account allocation. Pricing varies by tier and premium voice multipliers; increase `credit_ceiling_per_character` if your voices cost more. Subscription balances are refreshed before each paid turn. Check `credit-plan.json` for per-account planned use and `balances-after.json` for final balances. Other concurrent usage outside this repository can change those balances.
+The full dialogue must fit in one account. On a confirmed quota rejection the entire ungenerated request moves to the next funded account. Explicit rate-limit responses wait and retry the same account. Abuse/policy blocks and ambiguous transport/server failures do not rotate keys. A pending journal prevents uncertain paid requests from being repeated. Inspect ElevenLabs history before clearing an uncertain marker.
 
-Only confirmed quota errors cause mid-run account switching. Explicit rate-limit responses wait and retry the same account up to four times, honoring Retry-After up to 60 seconds. Authentication failures, abuse/policy blocks and uncertain errors stop the run. Confirmed throttling never rotates accounts. Each whole turn must fit in one account; audio is joined without changing speaker identity. Use only accounts and quotas you are authorized to use.
+Each paid dialogue response is saved before any rendering or alignment work. Alignment mismatches stop subtitle rendering and preserve the paid audio for repair. Budgets are estimates; provider-side overage settings determine a hard billing cap.
 
-## Prevent duplicate spending
+## Local checks
 
-Each paid response is cached by exact German text, voice, model and settings. Existing full-turn responses are reused first. New turns are synthesized one sentence per request, then joined with script-directed silence. Splitting text does not add a per-request credit fee; tiny rounding differences and voice rates can affect totals. English/layout edits reuse audio. Actions restores/saves this cache even on failure and uploads a separate recovery artifact. Runs are serialized. A pending marker is written before each paid request: if a response is lost, the next run stops rather than risk paying again. Inspect ElevenLabs history, recover the response or confirm no charge, then remove that marker before retrying. Do not delete caches casually.
-
-Actions caches expire/evict and are not permanent storage. Keep the recovery artifact if audio matters; download and restore `.audio-cache` before rerunning after an eviction. A hard runner crash before upload can still lose cached responses. Budgets are estimates and cannot impose a provider-side spending cap; disable overage billing in ElevenLabs for a hard account cap.
-
-## Local checks without credits
-
-Requires Python 3.12 and FFmpeg with libass, plus DejaVu Sans.
+Requires Python 3.12 and FFmpeg with libass and DejaVu Sans.
 
 ```sh
 python -m unittest discover -s tests -v
-python scripts/podcast.py --mode plan
-python scripts/podcast.py --mode mock
-python scripts/podcast.py --mode render --max-credits 0
+python scripts/dialogue_v3.py --mode plan
+python scripts/dialogue_v3.py --mode render --max-credits 0
 ```
 
-`mock` renders synthetic tones for layout verification and never contacts ElevenLabs. `generate` uses the Actions secrets (or equivalent environment variables locally). No extra transcription is billed: subtitle timings use measured turn durations, including inserted sentence pauses. Every subtitle cue shows exactly one German sentence and its corresponding English sentence; it remains visible through its following pause. Existing multi-sentence audio is split at the saved character timestamp boundaries without dropping samples. If exact alignment is missing, rendering stops instead of regenerating speech. Text outlines provide contrast; no dark background panels are drawn behind subtitles or the waveform. Provider character alignments are retained in cache for possible word-level subtitles later.
+The older `scripts/podcast.py` remains as shared API/cache utilities and the legacy Flash renderer. The active Actions workflow invokes only `dialogue_v3.py`.
 
-References: [Flash model](https://elevenlabs.io/docs/overview/models), [speech with timestamps](https://elevenlabs.io/docs/api-reference/text-to-speech/convert-with-timestamps), [subscription balances](https://elevenlabs.io/docs/api-reference/user/subscription/get).
-
-## Script-directed rhythm
-
-The new A1 sample, `input/learning-german.json`, is a short conversation about learning German. Every line contains one sentence. `pause_after` sets the added pause in seconds (0–3), so quick replies can use 0.15–0.25 seconds and examples or reflective points can use 0.65–0.95 seconds. Existing natural silence in the synthesized audio is retained, so this is an added gap rather than a promised total silence duration.
-
-```json
-{"speaker":"female","de":"Ich lerne jeden Tag ein bisschen.","en":"I learn a little every day.","pause_after":0.25}
-```
-
-Alternatively, `pace` selects a preset: `quick` 0.15, `normal` 0.35, `question` 0.50, `example` 0.75, `reflect` 0.95 seconds. Explicit `pause_after` overrides the preset. Without either field, short replies use a quick gap, questions get a question gap, and other sentences use normal pacing. For legacy multi-sentence turns, an optional `sentence_pauses` array supplies a pause for each sentence including the final sentence; otherwise internal pauses follow those same text rules.
-
-Rhythm controls are applied locally, outside the TTS cache identity. Changing them does not regenerate audio. Flash remains selected; use conversational wording and punctuation for expression rather than unsupported emotion tags. Sentence length and punctuation also influence the original delivery.
+References: [Dialogue with timestamps](https://elevenlabs.io/docs/api-reference/text-to-dialogue/convert-with-timestamps), [audio tags](https://elevenlabs.io/docs/help-center/product/core-capabilities/text-to-speech/how-do-audio-tags-work-with-eleven-v3-and-v4), [pauses](https://elevenlabs.io/docs/help-center/product/core-capabilities/text-to-speech/how-can-i-add-pauses).

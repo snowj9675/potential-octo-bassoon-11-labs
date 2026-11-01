@@ -1,0 +1,122 @@
+{
+  "title": "Deutsch lernen — gemeinsam und jeden Tag",
+  "level": "A1",
+  "turns": [
+    {
+      "speaker": "male",
+      "text": "[curious] Wie lernst du Deutsch? Was hilft dir jeden Tag?",
+      "chunks": [
+        {
+          "de": "Wie lernst du Deutsch?",
+          "en": "How do you learn German?"
+        },
+        {
+          "de": "Was hilft dir",
+          "en": "What helps you"
+        },
+        {
+          "de": "jeden Tag?",
+          "en": "every day?"
+        }
+      ]
+    },
+    {
+      "speaker": "female",
+      "text": "[thoughtful] Ich höre kurze Dialoge. [short pause] Dann spreche ich laut mit.",
+      "chunks": [
+        {
+          "de": "Ich höre kurze Dialoge.",
+          "en": "I listen to short dialogues."
+        },
+        {
+          "de": "Dann spreche ich laut mit.",
+          "en": "Then I repeat them aloud."
+        }
+      ]
+    },
+    {
+      "speaker": "male",
+      "text": "[curious] Verstehst du jedes Wort? Oder ist das schwer?",
+      "chunks": [
+        {
+          "de": "Verstehst du jedes Wort?",
+          "en": "Do you understand every word?"
+        },
+        {
+          "de": "Oder ist das schwer?",
+          "en": "Or is it difficult?"
+        }
+      ]
+    },
+    {
+      "speaker": "female",
+      "text": "[reassuring] Nein, nicht jedes Wort. [short pause] Aber das ist okay!",
+      "chunks": [
+        {
+          "de": "Nein, nicht jedes Wort.",
+          "en": "No, not every word."
+        },
+        {
+          "de": "Aber das ist okay!",
+          "en": "But that is okay!"
+        }
+      ]
+    },
+    {
+      "speaker": "male",
+      "text": "[curious] Was machst du mit neuen Wörtern?",
+      "chunks": [
+        {
+          "de": "Was machst du",
+          "en": "What do you do"
+        },
+        {
+          "de": "mit neuen Wörtern?",
+          "en": "with new words?"
+        }
+      ]
+    },
+    {
+      "speaker": "female",
+      "text": "[cheerful] Ich schreibe sie auf. Dann übe ich einen Satz.",
+      "chunks": [
+        {
+          "de": "Ich schreibe sie auf.",
+          "en": "I write them down."
+        },
+        {
+          "de": "Dann übe ich einen Satz.",
+          "en": "Then I practise a sentence."
+        }
+      ]
+    },
+    {
+      "speaker": "male",
+      "text": "[encouraging] Sehr gut! [short pause] Kleine Schritte helfen jeden Tag.",
+      "chunks": [
+        {
+          "de": "Sehr gut!",
+          "en": "Very good!"
+        },
+        {
+          "de": "Kleine Schritte helfen jeden Tag.",
+          "en": "Small steps help every day."
+        }
+      ]
+    },
+    {
+      "speaker": "female",
+      "text": "[warmly] Genau, wir lernen zusammen. [chuckles] Deutsch macht so mehr Spaß!",
+      "chunks": [
+        {
+          "de": "Genau, wir lernen zusammen.",
+          "en": "Exactly, we learn together."
+        },
+        {
+          "de": "Deutsch macht so mehr Spaß!",
+          "en": "German is more fun together!"
+        }
+      ]
+    }
+  ]
+}

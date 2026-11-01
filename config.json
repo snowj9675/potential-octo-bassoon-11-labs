@@ -1,9 +1,9 @@
 {
-  "model": "eleven_flash_v2_5",
+  "model": "eleven_v3",
   "image": "podcast.png",
   "male_voice_id": "CwhRBWXzGAHq8TQ4Fs17",
   "female_voice_id": "EXAVITQu4vr4xnSDxMaL",
   "credit_ceiling_per_character": 1.0,
   "max_credits": 700,
-  "playback_speed": 0.9
+  "playback_speed": 1.0
 }

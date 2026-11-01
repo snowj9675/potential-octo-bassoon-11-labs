@@ -4,7 +4,7 @@ on:
     inputs:
       script:
         description: JSON script path
-        default: input/learning-german.json
+        default: input/v3-learning-german.json
         required: true
         type: string
       mode:
@@ -18,7 +18,7 @@ on:
         type: string
   push:
     branches: [main]
-    paths: ['config.json', 'scripts/**', '.github/workflows/podcast.yml', 'input/learning-german.json']
+    paths: ['config.json', 'scripts/**', '.github/workflows/podcast.yml', 'input/v3-learning-german.json']
 permissions:
   contents: read
 concurrency:
@@ -52,15 +52,15 @@ jobs:
           FLORINA: ${{ secrets.FLORINA }}
           JOHN_SNOW: ${{ secrets.JOHN_SNOW }}
           ELEVENLABS_KEYS_JSON: ${{ secrets.ELEVENLABS_KEYS_JSON }}
-          SCRIPT_PATH: ${{ inputs.script || 'input/learning-german.json' }}
+          SCRIPT_PATH: ${{ inputs.script || 'input/v3-learning-german.json' }}
           RUN_MODE: ${{ inputs.mode || 'render' }}
           MAX_CREDITS: ${{ inputs.max_credits || '700' }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ "$EVENT_NAME" = "push" ] && ! git diff --quiet HEAD^ HEAD -- input/learning-german.json; then
+          if [ "$EVENT_NAME" = "push" ] && ! git diff --quiet HEAD^ HEAD -- input/v3-learning-german.json; then
             RUN_MODE=generate
           fi
-          python scripts/podcast.py --script "$SCRIPT_PATH" --mode "$RUN_MODE" --max-credits "$MAX_CREDITS"
+          python scripts/dialogue_v3.py --script "$SCRIPT_PATH" --mode "$RUN_MODE" --max-credits "$MAX_CREDITS"
       - name: Save paid responses even after failure
         if: always()
         uses: actions/cache/save@v4
