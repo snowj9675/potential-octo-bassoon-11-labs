@@ -1,4 +1,6 @@
 import importlib.util
+import io
+import urllib.error
 import json
 import os
 from pathlib import Path
@@ -120,6 +122,17 @@ class PipelineTests(unittest.TestCase):
     def test_translation_sentence_mismatch_stops_before_speech(self):
         with self.assertRaises(ValueError):
             p.sentence_pairs(dict(de='Hallo! Wie geht es dir?',en='Hello there.'))
+
+    def test_explicit_rate_limit_waits_and_retries_same_key(self):
+        error=urllib.error.HTTPError('https://example.test',429,'Too many requests',{'Retry-After':'2'},io.BytesIO(b'{"detail":{"status":"rate_limited"}}'))
+        class Response:
+            def __enter__(self): return io.StringIO('{"character_limit":10000,"character_count":0}')
+            def __exit__(self,*args): pass
+        with patch.object(p.urllib.request,'urlopen',side_effect=[error,Response()]) as call, patch.object(p.time,'sleep') as sleep:
+            self.assertEqual(p.request('same-key','/user/subscription')['character_limit'],10000)
+            self.assertEqual(call.call_count,2)
+            self.assertEqual(call.call_args_list[0].args[0].get_header('Xi-api-key'),call.call_args_list[1].args[0].get_header('Xi-api-key'))
+            sleep.assert_called_once_with(5)
 
     def test_subtitle_escaping(self):
         self.assertNotIn('{',p.escape(r'{\\an8}Hello'))

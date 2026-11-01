@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 import subprocess
 import textwrap
+import time
 import urllib.error
 import urllib.request
 
@@ -48,7 +49,7 @@ def load_episode(path):
     return data
 
 
-def request(key, route, body=None):
+def request(key, route, body=None, attempt=0):
     req = urllib.request.Request(API + route, data=None if body is None else json.dumps(body).encode(),
                                  headers={'xi-api-key': key, 'Content-Type': 'application/json'})
     try:
@@ -60,6 +61,16 @@ def request(key, route, body=None):
             status = detail.get('status', '') if isinstance(detail, dict) else ''
         except (ValueError, AttributeError):
             status = ''
+        # Only explicit throttling is safe to retry; keep the same account.
+        if e.code == 429 and status in ('rate_limited','too_many_concurrent_requests') and attempt < 4:
+            try:
+                wait = float(e.headers.get('Retry-After', 0))
+            except (ValueError,TypeError,AttributeError):
+                wait = 0
+            wait = min(60, max(wait, 5 * (2**attempt)))
+            print(f'ElevenLabs throttled the request; waiting {wait:g}s before retrying the same account', flush=True)
+            time.sleep(wait)
+            return request(key,route,body,attempt+1)
         # Never log provider response bodies or keys.
         raise ProviderError(e.code, status) from None
     except (OSError, ValueError):
@@ -205,6 +216,9 @@ def synthesize(line, config, voices, accounts):
         try:
             result = request(account['key'], f'/text-to-speech/{voice}/with-timestamps?output_format=mp3_44100_128', body)
         except ProviderError as e:
+            if e.code == 429 and e.status in ('rate_limited','too_many_concurrent_requests'):
+                marker.unlink()  # Provider explicitly rejected this request without synthesis.
+                raise
             if e.status in ('quota_exceeded', 'insufficient_credits'):
                 marker.unlink()
                 account['remaining'] = 0

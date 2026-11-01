@@ -31,7 +31,7 @@ The live preflight fetches real balances, deduplicates keys for the same user, d
 
 Uses `eleven_flash_v2_5`, whose published API discount is 50%. The report includes that indicative estimate and uses **1 credit per input character** as a conservative ceiling for budget and account allocation. Pricing varies by tier and premium voice multipliers; increase `credit_ceiling_per_character` if your voices cost more. Subscription balances are refreshed before each paid turn. Check `credit-plan.json` for per-account planned use and `balances-after.json` for final balances. Other concurrent usage outside this repository can change those balances.
 
-Only confirmed quota errors cause mid-run account switching. Throttling, authentication failures, abuse/policy blocks and uncertain errors stop the run. Each whole turn must fit in one account; audio is joined without changing speaker identity. Use only accounts and quotas you are authorized to use.
+Only confirmed quota errors cause mid-run account switching. Explicit rate-limit responses wait and retry the same account up to four times, honoring Retry-After up to 60 seconds. Authentication failures, abuse/policy blocks and uncertain errors stop the run. Confirmed throttling never rotates accounts. Each whole turn must fit in one account; audio is joined without changing speaker identity. Use only accounts and quotas you are authorized to use.
 
 ## Prevent duplicate spending
 
