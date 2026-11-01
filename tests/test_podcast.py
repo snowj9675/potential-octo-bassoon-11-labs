@@ -75,6 +75,26 @@ class PipelineTests(unittest.TestCase):
         with patch.dict(os.environ,{'ALVIN':'same','JOHN_SNOW':'same','ELEVENLABS_KEYS_JSON':json.dumps({'NEXT':'other'})},clear=True):
             self.assertEqual(len(p.keys()),2)
 
+    def test_sentence_boundaries_keep_every_sample(self):
+        text='Hallo! Wie geht es dir? Gut.'
+        alignment=dict(characters=list(text),
+                       character_start_times_seconds=[i/10 for i in range(len(text))],
+                       character_end_times_seconds=[(i+1)/10 for i in range(len(text))])
+        spans=p.sentence_intervals(text,alignment,3.0)
+        self.assertEqual(len(spans),3)
+        self.assertEqual(spans[0][0],0)
+        self.assertEqual(spans[-1][1],3.0)
+        self.assertTrue(all(left[1]==right[0] for left,right in zip(spans,spans[1:])))
+        with self.assertRaises(RuntimeError):
+            p.sentence_intervals(text,None,3.0)
+
+    def test_existing_turn_is_reused_before_sentence_requests(self):
+        line=dict(speaker='male',de='Hallo! Wie geht es dir?',en='Hello! How are you?')
+        self.assertEqual([u['de'] for u in p.generation_units(line,self.config,self.voices)],['Hallo!','Wie geht es dir?'])
+        body,voice=p.payload(line,self.config,self.voices)
+        p.atomic(p.CACHE/f'{p.cache_id(body,voice)}.json',{})
+        self.assertEqual(p.generation_units(line,self.config,self.voices),[line])
+
     def test_subtitle_escaping(self):
         self.assertNotIn('{',p.escape(r'{\\an8}Hello'))
         self.assertEqual(p.ass_time(61.25),'0:01:01.25')

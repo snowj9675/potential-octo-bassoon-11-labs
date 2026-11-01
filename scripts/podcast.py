@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import os
+import re
 from pathlib import Path
 import subprocess
 import textwrap
@@ -215,6 +216,76 @@ def synthesize(line, config, voices, accounts):
     raise RuntimeError('No account can fund the next turn. Completed turns are saved.')
 
 
+def sentences(text):
+    """Input uses short A1/A2 sentences; avoid splitting common abbreviations."""
+    spans = []
+    begin = 0
+    for match in re.finditer(r'[.!?]+(?:[»”"\']?)(?=\s+|$)', text):
+        end = match.end()
+        word = text[begin:end].split()[-1].lower()
+        if word in {'z.', 'b.', 'dr.', 'nr.', 'bzw.', 'usw.'} or re.fullmatch(r'[A-ZÄÖÜ]\.', text[begin:end].split()[-1]):
+            continue
+        spans.append((begin, end))
+        begin = end
+        while begin < len(text) and text[begin].isspace():
+            begin += 1
+    if begin < len(text):
+        spans.append((begin, len(text)))
+    return spans or [(0, len(text))]
+
+
+def generation_units(line, config, voices):
+    """Reuse an existing full turn; synthesize only new material sentence by sentence."""
+    body, voice = payload(line, config, voices)
+    ident = cache_id(body, voice)
+    if (CACHE / f'{ident}.json').exists() or (CACHE / f'{ident}.pending').exists():
+        return [line]
+    return [dict(line, de=line['de'][a:b]) for a, b in sentences(line['de'])]
+
+
+def sentence_intervals(text, alignment, audio_duration):
+    """Partition all original samples; character timing puts cuts between sentences."""
+    spans = sentences(text)
+    if len(spans) == 1:
+        return [(0.0, audio_duration)]
+    if not alignment or ''.join(alignment.get('characters', [])) != text:
+        raise RuntimeError('Exact character alignment required to pause cached multi-sentence audio; no audio regenerated.')
+    starts = alignment['character_start_times_seconds']
+    ends = alignment['character_end_times_seconds']
+    if len(starts) != len(text) or len(ends) != len(text):
+        raise RuntimeError('Incomplete cached alignment; no audio regenerated.')
+    cuts = [0.0]
+    for previous, current in zip(spans, spans[1:]):
+        # Whitespace and punctuation are timed; keep the boundary inside their gap.
+        cut = (ends[previous[1]-1] + starts[current[0]]) / 2
+        if not cuts[-1] < cut < audio_duration:
+            raise RuntimeError('Invalid cached sentence timing; refusing to cut speech')
+        cuts.append(cut)
+    cuts.append(audio_duration)
+    return list(zip(cuts, cuts[1:]))
+
+
+def pace_turn(sources, index, config):
+    """Add silence locally using cached timing. Never sends text or audio to an API."""
+    parts = []
+    for source, text, alignment in sources:
+        intervals = sentence_intervals(text, alignment, duration(source))
+        for start, end in intervals:
+            parts.append((source, start, end))
+    rendered = []
+    for n, (source, start, end) in enumerate(parts):
+        target = OUT / f'paced-{index:04}-{n:03}.wav'
+        pause = config.get('sentence_pause_seconds', 0.75) if n < len(parts)-1 else 0
+        filt = f'atrim=start={start}:end={end},asetpts=PTS-STARTPTS,atempo={config.get("playback_speed", 0.9)},apad=pad_dur={pause}'
+        run('ffmpeg','-v','error','-y','-i',source,'-af',filt,'-ar','44100','-ac','1',target)
+        rendered.append(target)
+    manifest = OUT / f'paced-{index:04}.txt'
+    manifest.write_text(''.join(f"file '{p.name}'\n" for p in rendered))
+    target = OUT / f'paced-{index:04}.wav'
+    run('ffmpeg','-v','error','-y','-f','concat','-safe','0','-i',manifest,'-c:a','pcm_s16le',target)
+    return target
+
+
 def duration(path):
     return float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','csv=p=0',str(path)]))
 
@@ -228,17 +299,17 @@ def escape(text):
     return text.replace('\\', '＼').replace('{', '｛').replace('}', '｝')
 
 
-def render(episode, clips, image, gap, playback_speed=0.9):
+def render(episode, clips, image, gap):
     OUT.mkdir(exist_ok=True)
     timeline, cursor = [], 0.0
     for i, (line, audio) in enumerate(zip(episode['lines'],clips)):
         clip = OUT / f'turn-{i:04}.wav'
-        run('ffmpeg','-v','error','-y','-i',audio,'-af',f'atempo={playback_speed},apad=pad_dur={gap}','-ar','44100','-ac','1',clip)
+        run('ffmpeg','-v','error','-y','-i',audio,'-af',f'apad=pad_dur={gap}','-ar','44100','-ac','1',clip)
         length = duration(clip)
         timeline.append((cursor, cursor+length-gap, line))
         cursor += length
     (OUT/'concat.txt').write_text(''.join(f"file 'turn-{i:04}.wav'\n" for i in range(len(clips))))
-    run('ffmpeg','-v','error','-y','-f','concat','-safe','0','-i',OUT/'concat.txt','-af','loudnorm=I=-18:TP=-2:LRA=7',OUT/'podcast.wav')
+    run('ffmpeg','-v','error','-y','-f','concat','-safe','0','-i',OUT/'concat.txt','-af','loudnorm=I=-18:TP=-2:LRA=7','-ar','44100',OUT/'podcast.wav')
     run('ffmpeg','-v','error','-y','-i',OUT/'podcast.wav','-c:a','libmp3lame','-b:a','128k',OUT/'podcast.mp3')
     header = '''[Script Info]
 ScriptType: v4.00+
@@ -267,9 +338,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     (OUT/'english.srt').write_text('\n'.join(en_srt))
     atomic(OUT/'timeline.json',dict(duration_seconds=cursor, turns=[dict(start=s,end=e,**l) for s,e,l in timeline]))
     graph = ('[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,'
-             'setsar=1,drawbox=x=100:y=25:w=1720:h=245:color=black@0.20:t=fill,'
-             'drawbox=x=570:y=895:w=780:h=150:color=black@0.35:t=fill[bg];'
-             '[1:a]asplit=2[a][wave];[wave]volume=3,showwaves=s=700x100:mode=cline:rate=25:colors=0xFFE78D:scale=sqrt[w];'
+             'setsar=1[bg];'
+             '[1:a]asplit=2[a][wave];[wave]volume=3,showwaves=s=700x100:mode=cline:rate=25:colors=0xFFE78D:scale=sqrt,format=rgba,colorkey=0x000000:0.02:0.0[w];'
              '[bg][w]overlay=610:920:shortest=1,ass=output/subtitles.ass[v]')
     run('ffmpeg','-v','error','-y','-loop','1','-framerate','25','-i',image,'-i',OUT/'podcast.wav',
         '-filter_complex',graph,'-map','[v]','-map','[a]','-c:v','libx264','-preset','fast','-crf','21',
@@ -281,7 +351,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--script', default='input/sample.json')
-    parser.add_argument('--mode', choices=['plan','generate','mock'],default='plan')
+    parser.add_argument('--mode', choices=['plan','generate','render','mock'],default='plan')
     parser.add_argument('--max-credits',type=int,default=None)
     args=parser.parse_args()
     episode=load_episode(args.script)
@@ -291,6 +361,10 @@ def main():
     if config['credit_ceiling_per_character'] < 1:
         raise ValueError('Conservative credit ceiling must be at least 1')
     voices=dict(male=config.get('male_voice_id') or 'AUTO_MALE',female=config.get('female_voice_id') or 'AUTO_FEMALE')
+    saved = CACHE / 'voice-selection.json'
+    if saved.exists():
+        selection = json.loads(saved.read_text())
+        voices = {g: config.get(g+'_voice_id') or selection[g] for g in ('male','female')}
     accounts=None
     if args.mode!='plan':
         if not Path(config['image']).is_file():
@@ -298,20 +372,33 @@ def main():
         subprocess.run(['ffmpeg','-version'], check=True, stdout=subprocess.DEVNULL)
     if args.mode=='generate':
         accounts, voices=discover(keys(),config)
-    plan(episode['lines'],config,voices,accounts)
+    units = [[dict(line,de=line['de'][a:b]) for a,b in sentences(line['de'])] if args.mode=='mock' else generation_units(line,config,voices) for line in episode['lines']]
+    flat = [unit for turn in units for unit in turn]
+    report = plan(flat,config,voices,accounts)
     if args.mode=='plan':
         return
+    if args.mode=='render' and report['uncached_unique_characters']:
+        raise RuntimeError('Render-only mode requires every audio response in cache. No API calls made. Restore the recovery artifact or choose generate explicitly.')
     clips=[]
-    for i,line in enumerate(episode['lines']):
-        audio=OUT/f'audio-{i:04}.mp3'
-        if args.mode=='generate':
-            result=synthesize(line,config,voices,accounts)
-            audio.write_bytes(base64.b64decode(result['audio_base64'],validate=True))
-        else:
-            seconds=len(line['de'].split())/1.7
-            run('ffmpeg','-v','error','-y','-f','lavfi','-i',f'sine=frequency={180 if line["speaker"]=="male" else 260}:duration={seconds}',audio)
-        clips.append(audio)
-    render(episode,clips,config['image'],config['pause_seconds'],config.get('playback_speed',0.9))
+    for i,(line,turn_units) in enumerate(zip(episode['lines'],units)):
+        sources=[]
+        for j,unit in enumerate(turn_units):
+            audio=OUT/f'audio-{i:04}-{j:03}.mp3'
+            if args.mode in ('generate','render'):
+                if args.mode=='render':
+                    body, voice=payload(unit,config,voices)
+                    result=json.loads((CACHE/f'{cache_id(body,voice)}.json').read_text())
+                else:
+                    result=synthesize(unit,config,voices,accounts)
+                audio.write_bytes(base64.b64decode(result['audio_base64'],validate=True))
+                alignment=result.get('alignment')
+            else:
+                seconds=len(unit['de'].split())/1.7
+                run('ffmpeg','-v','error','-y','-f','lavfi','-i',f'sine=frequency={180 if unit["speaker"]=="male" else 260}:duration={seconds}',audio)
+                alignment=None
+            sources.append((audio,unit['de'],alignment))
+        clips.append(pace_turn(sources,i,config))
+    render(episode,clips,config['image'],config['pause_seconds'])
     if accounts:
         usage=[]
         for a in accounts:

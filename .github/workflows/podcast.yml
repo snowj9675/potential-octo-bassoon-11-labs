@@ -8,17 +8,17 @@ on:
         required: true
         type: string
       mode:
-        description: plan uses no credits; generate creates audio and video
+        description: plan estimates; render reuses audio only; generate permits new TTS
         default: plan
         type: choice
-        options: [plan, generate]
+        options: [plan, render, generate]
       max_credits:
         description: Conservative maximum credits for uncached German text
         default: '700'
         type: string
   push:
     branches: [main]
-    paths: ['input/sample.json']
+    paths: ['config.json', 'scripts/**', '.github/workflows/podcast.yml']
 permissions:
   contents: read
 concurrency:
@@ -51,7 +51,7 @@ jobs:
           JOHN_SNOW: ${{ secrets.JOHN_SNOW }}
           ELEVENLABS_KEYS_JSON: ${{ secrets.ELEVENLABS_KEYS_JSON }}
           SCRIPT_PATH: ${{ inputs.script || 'input/sample.json' }}
-          RUN_MODE: ${{ inputs.mode || 'generate' }}
+          RUN_MODE: ${{ inputs.mode || 'render' }}
           MAX_CREDITS: ${{ inputs.max_credits || '700' }}
         run: python scripts/podcast.py --script "$SCRIPT_PATH" --mode "$RUN_MODE" --max-credits "$MAX_CREDITS"
       - name: Save paid responses even after failure
