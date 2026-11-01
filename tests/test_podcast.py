@@ -95,6 +95,32 @@ class PipelineTests(unittest.TestCase):
         p.atomic(p.CACHE/f'{p.cache_id(body,voice)}.json',{})
         self.assertEqual(p.generation_units(line,self.config,self.voices),[line])
 
+    def test_variable_script_pauses(self):
+        self.assertEqual(p.selected_pause(dict(de='Ja!',pace='quick')),0.15)
+        self.assertEqual(p.selected_pause(dict(de='Warum?',pace='reflect')),0.95)
+        self.assertEqual(p.selected_pause(dict(de='Ja!',pace='reflect',pause_after=0.2)),0.2)
+        for value in (-1,4,float('nan'),True):
+            with self.assertRaises(ValueError):
+                p.selected_pause(dict(de='Ja!',pause_after=value))
+
+    def test_legacy_turn_becomes_separate_bilingual_subtitle_cues(self):
+        line=dict(speaker='male',de='Hallo! Wie geht es dir?',en='Hello! How are you?',pause_after=0.4)
+        text=line['de']
+        alignment=dict(characters=list(text),character_start_times_seconds=[i/10 for i in range(len(text))],character_end_times_seconds=[(i+1)/10 for i in range(len(text))])
+        p.OUT.mkdir(parents=True)
+        with patch.object(p,'run'), patch.object(p,'duration',return_value=3.0):
+            audio,cues=p.pace_turn([(Path('source.mp3'),text,alignment)],0,dict(playback_speed=0.9),line)
+            self.assertEqual([(c['de'],c['en']) for c in cues],[('Hallo!','Hello!'),('Wie geht es dir?','How are you?')])
+            p.render(dict(lines=[line]),[(audio,cues)],'image.png')
+        result=json.loads((p.OUT/'timeline.json').read_text())
+        self.assertEqual(len(result['turns']),2)
+        self.assertEqual(result['turns'][1]['pause_after'],0.4)
+        self.assertEqual((p.OUT/'german.srt').read_text().count('-->'),2)
+
+    def test_translation_sentence_mismatch_stops_before_speech(self):
+        with self.assertRaises(ValueError):
+            p.sentence_pairs(dict(de='Hallo! Wie geht es dir?',en='Hello there.'))
+
     def test_subtitle_escaping(self):
         self.assertNotIn('{',p.escape(r'{\\an8}Hello'))
         self.assertEqual(p.ass_time(61.25),'0:01:01.25')

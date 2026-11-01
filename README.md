@@ -1,10 +1,10 @@
 # German learning podcast
 
-Two alternating ElevenLabs voices, slow German (0.90 synthesis speed plus 0.90 local playback speed), 0.75-second sentence pauses and 1.6-second speaker pauses, your `podcast.png`, German subtitles at the upper centre, English underneath, and an audio-driven waveform near the bottom. 1920×1080 MP4, MP3, SRTs, preview and credit reports are downloadable as Actions artifacts.
+Two alternating ElevenLabs voices, slow German (0.90 synthesis speed plus 0.90 local playback speed), variable pauses chosen per sentence, your `podcast.png`, German subtitles at the upper centre, English underneath, and an audio-driven waveform near the bottom. 1920×1080 MP4, MP3, SRTs, preview and credit reports are downloadable as Actions artifacts.
 
 ## Run
 
-Changes to rendering code, config, or the workflow on `main` automatically rerender the sample from cached audio only. They never call ElevenLabs. Script edits do not automatically generate speech. For later runs open **Actions → German Podcast → Run workflow**:
+Changes to rendering code, config, or the workflow on `main` rerender `input/learning-german.json` from cached audio only. Changing `input/learning-german.json` explicitly triggers generation of its new sentences, capped at the workflow budget of 700 estimated credits. Other script files run manually through workflow dispatch. For later runs open **Actions → German Podcast → Run workflow**:
 
 1. Choose `plan` first (offline, **zero API calls**).
 2. Set `script` to your input JSON path. Use `render` to change visuals and pacing with existing audio (zero API calls; fails if audio is missing).
@@ -21,7 +21,7 @@ Full episodes should contain roughly 800–1,100 German words for 8–10 minutes
 ]}
 ```
 
-Alternate `male` and `female`. Keep each turn short (German max 180 characters; English max 220) so subtitles stay readable. Split longer turns into a conversational response rather than a paragraph. English is displayed only and uses no TTS credits.
+Use `male` and `female` for the two hosts; consecutive sentences by one host are supported. Keep each turn short (German max 180 characters; English max 220) so subtitles stay readable. Prefer one German sentence and its one-sentence English translation per line. Existing multi-sentence turns are split into separate subtitle cues using saved timestamps; German and English sentence counts must match. English is displayed only and uses no TTS credits.
 
 ## Accounts and voices
 
@@ -35,7 +35,7 @@ Only confirmed quota errors cause mid-run account switching. Throttling, authent
 
 ## Prevent duplicate spending
 
-Each paid response is cached by exact German text, voice, model and settings. Existing full-turn responses are reused first. New turns are synthesized one sentence per request, then joined with local silence. Splitting text does not add a per-request credit fee; tiny rounding differences and voice rates can affect totals. English/layout edits reuse audio. Actions restores/saves this cache even on failure and uploads a separate recovery artifact. Runs are serialized. A pending marker is written before each paid request: if a response is lost, the next run stops rather than risk paying again. Inspect ElevenLabs history, recover the response or confirm no charge, then remove that marker before retrying. Do not delete caches casually.
+Each paid response is cached by exact German text, voice, model and settings. Existing full-turn responses are reused first. New turns are synthesized one sentence per request, then joined with script-directed silence. Splitting text does not add a per-request credit fee; tiny rounding differences and voice rates can affect totals. English/layout edits reuse audio. Actions restores/saves this cache even on failure and uploads a separate recovery artifact. Runs are serialized. A pending marker is written before each paid request: if a response is lost, the next run stops rather than risk paying again. Inspect ElevenLabs history, recover the response or confirm no charge, then remove that marker before retrying. Do not delete caches casually.
 
 Actions caches expire/evict and are not permanent storage. Keep the recovery artifact if audio matters; download and restore `.audio-cache` before rerunning after an eviction. A hard runner crash before upload can still lose cached responses. Budgets are estimates and cannot impose a provider-side spending cap; disable overage billing in ElevenLabs for a hard account cap.
 
@@ -50,6 +50,18 @@ python scripts/podcast.py --mode mock
 python scripts/podcast.py --mode render --max-credits 0
 ```
 
-`mock` renders synthetic tones for layout verification and never contacts ElevenLabs. `generate` uses the Actions secrets (or equivalent environment variables locally). No extra transcription is billed: subtitle timings use measured turn durations, including inserted sentence pauses. Existing multi-sentence audio is split at the saved character timestamp boundaries without dropping samples. If exact alignment is missing, rendering stops instead of regenerating speech. Text outlines provide contrast; no dark background panels are drawn behind subtitles or the waveform. Provider character alignments are retained in cache for possible word-level subtitles later.
+`mock` renders synthetic tones for layout verification and never contacts ElevenLabs. `generate` uses the Actions secrets (or equivalent environment variables locally). No extra transcription is billed: subtitle timings use measured turn durations, including inserted sentence pauses. Every subtitle cue shows exactly one German sentence and its corresponding English sentence; it remains visible through its following pause. Existing multi-sentence audio is split at the saved character timestamp boundaries without dropping samples. If exact alignment is missing, rendering stops instead of regenerating speech. Text outlines provide contrast; no dark background panels are drawn behind subtitles or the waveform. Provider character alignments are retained in cache for possible word-level subtitles later.
 
 References: [Flash model](https://elevenlabs.io/docs/overview/models), [speech with timestamps](https://elevenlabs.io/docs/api-reference/text-to-speech/convert-with-timestamps), [subscription balances](https://elevenlabs.io/docs/api-reference/user/subscription/get).
+
+## Script-directed rhythm
+
+The new A1 sample, `input/learning-german.json`, is a short conversation about learning German. Every line contains one sentence. `pause_after` sets the added pause in seconds (0–3), so quick replies can use 0.15–0.25 seconds and examples or reflective points can use 0.65–0.95 seconds. Existing natural silence in the synthesized audio is retained, so this is an added gap rather than a promised total silence duration.
+
+```json
+{"speaker":"female","de":"Ich lerne jeden Tag ein bisschen.","en":"I learn a little every day.","pause_after":0.25}
+```
+
+Alternatively, `pace` selects a preset: `quick` 0.15, `normal` 0.35, `question` 0.50, `example` 0.75, `reflect` 0.95 seconds. Explicit `pause_after` overrides the preset. Without either field, short replies use a quick gap, questions get a question gap, and other sentences use normal pacing. For legacy multi-sentence turns, an optional `sentence_pauses` array supplies a pause for each sentence including the final sentence; otherwise internal pauses follow those same text rules.
+
+Rhythm controls are applied locally, outside the TTS cache identity. Changing them does not regenerate audio. Flash remains selected; use conversational wording and punctuation for expression rather than unsupported emotion tags. Sentence length and punctuation also influence the original delivery.

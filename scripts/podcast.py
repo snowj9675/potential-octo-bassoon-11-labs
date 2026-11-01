@@ -40,7 +40,11 @@ def load_episode(path):
         assert 0 < len(line['de']) <= 180, 'Use short subtitle turns (max 180 characters)'
         assert 0 < len(line['en']) <= 220
         assert '\n' not in line['de'] and '\n' not in line['en']
-        assert i == 0 or line['speaker'] != lines[i-1]['speaker'], 'Alternate speakers'
+        sentence_pairs(line)
+        selected_pause(line)
+        if 'sentence_pauses' in line:
+            assert len(line['sentence_pauses']) == len(sentences(line['de'])), 'One sentence_pauses value per sentence'
+            assert all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) and 0 <= v <= 3 for v in line['sentence_pauses'])
     return data
 
 
@@ -265,25 +269,61 @@ def sentence_intervals(text, alignment, audio_duration):
     return list(zip(cuts, cuts[1:]))
 
 
-def pace_turn(sources, index, config):
-    """Add silence locally using cached timing. Never sends text or audio to an API."""
+PAUSES = {'quick': 0.15, 'normal': 0.35, 'question': 0.50, 'example': 0.75, 'reflect': 0.95}
+
+
+def sentence_pairs(line):
+    german = [line['de'][a:b] for a,b in sentences(line['de'])]
+    english = [line['en'][a:b] for a,b in sentences(line['en'])]
+    if len(german) != len(english):
+        raise ValueError('German and English must have the same sentence count; supply one sentence and its translation per line.')
+    return list(zip(german,english))
+
+
+def selected_pause(line, text=None):
+    if 'pause_after' in line:
+        value = line['pause_after']
+        if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value) or not 0 <= value <= 3:
+            raise ValueError('pause_after must be 0–3 seconds')
+        return value
+    if 'pace' in line:
+        if line['pace'] not in PAUSES:
+            raise ValueError('pace must be quick, normal, question, example or reflect')
+        return PAUSES[line['pace']]
+    text = text or line['de']
+    if text.endswith('?'):
+        return PAUSES['question']
+    if len(text.split()) <= 4:
+        return PAUSES['quick']
+    return PAUSES['normal']
+
+
+def pace_turn(sources, index, config, line):
+    """Keep one bilingual sentence per cue; use script-directed rhythm."""
+    pairs = sentence_pairs(line)
     parts = []
     for source, text, alignment in sources:
-        intervals = sentence_intervals(text, alignment, duration(source))
-        for start, end in intervals:
+        for start, end in sentence_intervals(text, alignment, duration(source)):
             parts.append((source, start, end))
-    rendered = []
-    for n, (source, start, end) in enumerate(parts):
+    if len(parts) != len(pairs):
+        raise ValueError('Sentence audio and bilingual subtitle counts differ')
+    rendered, cues, cursor = [], [], 0.0
+    for n, ((source, start, end),(de,en)) in enumerate(zip(parts,pairs)):
         target = OUT / f'paced-{index:04}-{n:03}.wav'
-        pause = config.get('sentence_pause_seconds', 0.75) if n < len(parts)-1 else 0
+        pause = 0
+        if n < len(parts)-1:
+            pause = line['sentence_pauses'][n] if 'sentence_pauses' in line else selected_pause({'de':de})
         filt = f'atrim=start={start}:end={end},asetpts=PTS-STARTPTS,atempo={config.get("playback_speed", 0.9)},apad=pad_dur={pause}'
         run('ffmpeg','-v','error','-y','-i',source,'-af',filt,'-ar','44100','-ac','1',target)
+        length = duration(target)
+        cues.append(dict(start=cursor,end=cursor+length,speaker=line['speaker'],de=de,en=en,pause_after=pause))
+        cursor += length
         rendered.append(target)
     manifest = OUT / f'paced-{index:04}.txt'
     manifest.write_text(''.join(f"file '{p.name}'\n" for p in rendered))
     target = OUT / f'paced-{index:04}.wav'
     run('ffmpeg','-v','error','-y','-f','concat','-safe','0','-i',manifest,'-c:a','pcm_s16le',target)
-    return target
+    return target, cues
 
 
 def duration(path):
@@ -299,14 +339,17 @@ def escape(text):
     return text.replace('\\', '＼').replace('{', '｛').replace('}', '｝')
 
 
-def render(episode, clips, image, gap):
+def render(episode, clips, image):
     OUT.mkdir(exist_ok=True)
     timeline, cursor = [], 0.0
-    for i, (line, audio) in enumerate(zip(episode['lines'],clips)):
+    for i, (line, (audio, cues)) in enumerate(zip(episode['lines'],clips)):
+        gap = line['sentence_pauses'][-1] if 'sentence_pauses' in line else selected_pause(line, cues[-1]['de'])
         clip = OUT / f'turn-{i:04}.wav'
         run('ffmpeg','-v','error','-y','-i',audio,'-af',f'apad=pad_dur={gap}','-ar','44100','-ac','1',clip)
         length = duration(clip)
-        timeline.append((cursor, cursor+length-gap, line))
+        for n,cue in enumerate(cues):
+            end = cue['end'] + (gap if n==len(cues)-1 else 0)
+            timeline.append((cursor+cue['start'],cursor+end,dict(speaker=cue['speaker'],de=cue['de'],en=cue['en'],pause_after=gap if n==len(cues)-1 else cue['pause_after'])))
         cursor += length
     (OUT/'concat.txt').write_text(''.join(f"file 'turn-{i:04}.wav'\n" for i in range(len(clips))))
     run('ffmpeg','-v','error','-y','-f','concat','-safe','0','-i',OUT/'concat.txt','-af','loudnorm=I=-18:TP=-2:LRA=7','-ar','44100',OUT/'podcast.wav')
@@ -397,8 +440,8 @@ def main():
                 run('ffmpeg','-v','error','-y','-f','lavfi','-i',f'sine=frequency={180 if unit["speaker"]=="male" else 260}:duration={seconds}',audio)
                 alignment=None
             sources.append((audio,unit['de'],alignment))
-        clips.append(pace_turn(sources,i,config))
-    render(episode,clips,config['image'],config['pause_seconds'])
+        clips.append(pace_turn(sources,i,config,line))
+    render(episode,clips,config['image'])
     if accounts:
         usage=[]
         for a in accounts:

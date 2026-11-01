@@ -4,7 +4,7 @@ on:
     inputs:
       script:
         description: JSON script path
-        default: input/sample.json
+        default: input/learning-german.json
         required: true
         type: string
       mode:
@@ -18,7 +18,7 @@ on:
         type: string
   push:
     branches: [main]
-    paths: ['config.json', 'scripts/**', '.github/workflows/podcast.yml']
+    paths: ['config.json', 'scripts/**', '.github/workflows/podcast.yml', 'input/learning-german.json']
 permissions:
   contents: read
 concurrency:
@@ -30,6 +30,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -50,10 +52,15 @@ jobs:
           FLORINA: ${{ secrets.FLORINA }}
           JOHN_SNOW: ${{ secrets.JOHN_SNOW }}
           ELEVENLABS_KEYS_JSON: ${{ secrets.ELEVENLABS_KEYS_JSON }}
-          SCRIPT_PATH: ${{ inputs.script || 'input/sample.json' }}
+          SCRIPT_PATH: ${{ inputs.script || 'input/learning-german.json' }}
           RUN_MODE: ${{ inputs.mode || 'render' }}
           MAX_CREDITS: ${{ inputs.max_credits || '700' }}
-        run: python scripts/podcast.py --script "$SCRIPT_PATH" --mode "$RUN_MODE" --max-credits "$MAX_CREDITS"
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "push" ] && ! git diff --quiet HEAD^ HEAD -- input/learning-german.json; then
+            RUN_MODE=generate
+          fi
+          python scripts/podcast.py --script "$SCRIPT_PATH" --mode "$RUN_MODE" --max-credits "$MAX_CREDITS"
       - name: Save paid responses even after failure
         if: always()
         uses: actions/cache/save@v4

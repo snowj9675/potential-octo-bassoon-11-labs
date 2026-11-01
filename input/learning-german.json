@@ -1,0 +1,118 @@
+{
+  "title": "Wie lernst du Deutsch?",
+  "level": "A1",
+  "lines": [
+    {
+      "speaker": "male",
+      "de": "Hallo Anna, wie lernst du Deutsch?",
+      "en": "Hello Anna, how do you learn German?",
+      "pace": "question",
+      "pause_after": 0.25
+    },
+    {
+      "speaker": "female",
+      "de": "Ich lerne jeden Tag ein bisschen.",
+      "en": "I learn a little every day.",
+      "pace": "normal",
+      "pause_after": 0.25
+    },
+    {
+      "speaker": "male",
+      "de": "Was machst du am Morgen?",
+      "en": "What do you do in the morning?",
+      "pace": "question",
+      "pause_after": 0.4
+    },
+    {
+      "speaker": "female",
+      "de": "Ich höre einen kurzen Dialog.",
+      "en": "I listen to a short dialogue.",
+      "pace": "normal",
+      "pause_after": 0.3
+    },
+    {
+      "speaker": "male",
+      "de": "Verstehst du jedes Wort?",
+      "en": "Do you understand every word?",
+      "pace": "question",
+      "pause_after": 0.2
+    },
+    {
+      "speaker": "female",
+      "de": "Nein, aber ich höre noch einmal zu.",
+      "en": "No, but I listen again.",
+      "pace": "normal",
+      "pause_after": 0.45
+    },
+    {
+      "speaker": "male",
+      "de": "Und was machst du mit neuen Wörtern?",
+      "en": "And what do you do with new words?",
+      "pace": "question",
+      "pause_after": 0.3
+    },
+    {
+      "speaker": "female",
+      "de": "Ich schreibe sie in mein Heft.",
+      "en": "I write them in my notebook.",
+      "pace": "normal",
+      "pause_after": 0.4
+    },
+    {
+      "speaker": "male",
+      "de": "Lernst du auch ganze Sätze?",
+      "en": "Do you also learn whole sentences?",
+      "pace": "question",
+      "pause_after": 0.25
+    },
+    {
+      "speaker": "female",
+      "de": "Ja, zum Beispiel: Ich möchte einen Tee.",
+      "en": "Yes, for example: I would like a tea.",
+      "pace": "example",
+      "pause_after": 0.9
+    },
+    {
+      "speaker": "male",
+      "de": "Das kannst du im Café sagen.",
+      "en": "You can say that in a café.",
+      "pace": "normal",
+      "pause_after": 0.2
+    },
+    {
+      "speaker": "female",
+      "de": "Genau, und ich spreche laut.",
+      "en": "Exactly, and I speak out loud.",
+      "pace": "quick",
+      "pause_after": 0.15
+    },
+    {
+      "speaker": "male",
+      "de": "Ist das manchmal schwer?",
+      "en": "Is that sometimes difficult?",
+      "pace": "question",
+      "pause_after": 0.3
+    },
+    {
+      "speaker": "female",
+      "de": "Ja, aber Fehler sind okay.",
+      "en": "Yes, but mistakes are okay.",
+      "pace": "reflect",
+      "pause_after": 0.65
+    },
+    {
+      "speaker": "male",
+      "de": "Zehn Minuten am Tag sind ein guter Anfang.",
+      "en": "Ten minutes a day is a good start.",
+      "pace": "reflect",
+      "pause_after": 0.7
+    },
+    {
+      "speaker": "female",
+      "de": "Und zusammen macht Deutsch mehr Spaß!",
+      "en": "And German is more fun together!",
+      "pace": "normal",
+      "pause_after": 0.55
+    }
+  ]
+}
